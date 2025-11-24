@@ -7,9 +7,4 @@ class Buyer (
     username: String,
     password: String,
     var alamat: String
-    ) : User(id, nama, noHp, username, password) {
-
-        fun ubahStatus(): String {
-            return "Status berhasil diubah oleh Buyer"
-        }
-}
+)

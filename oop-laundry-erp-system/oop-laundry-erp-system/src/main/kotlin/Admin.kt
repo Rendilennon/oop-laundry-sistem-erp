@@ -6,9 +6,4 @@ class Admin (
     noHp: String,
     username: String,
     password: String
-    ) : User(id, nama, noHp, username, password) {
-
-        fun ubahStatus(): String {
-            return "Status berhasil diubah oleh Admin"
-        }
-}
+)
