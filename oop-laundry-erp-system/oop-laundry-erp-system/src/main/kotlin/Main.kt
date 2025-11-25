@@ -4,6 +4,11 @@ import com.erp.laundry.models.*
 import com.erp.laundry.repository.LaundryRepository
 import com.erp.laundry.routes.appRouting
 import com.erp.laundry.routes.userRouting
+import com.erp.laundry.routes.inventoryRouting
+import com.erp.laundry.routes.serviceRouting
+import com.erp.laundry.routes.transactionRouting
+import com.erp.laundry.routes.reportRouting
+import com.erp.laundry.routes.userRouting
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -12,12 +17,16 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.routing.*
 import java.util.Scanner
 import java.time.LocalDateTime
+import java.io.File
 
 fun Application.module() {
     install(ContentNegotiation) { jackson() }
     routing {
-        userRouting() // Route User (Admin & Buyer separated)
-        appRouting()  // Route Inventory, Service, Transaction
+        userRouting()
+        inventoryRouting()
+        serviceRouting()
+        transactionRouting()
+        reportRouting()
     }
 }
 
@@ -47,13 +56,13 @@ fun main() {
             println("❌ Username sudah ada."); return
         }
         print("Password: "); val pass = scanner.nextLine()
-
-        // 👇 UPDATE: Set default role sebagai "user" (pembeli)
         LaundryRepository.userList.add(User(genUserId(), nama, noHp, user, pass, role = "user"))
         println("✅ Akun berhasil dibuat.")
     }
 
-    fun adminRegisterUser() { registerUser() } // Admin juga mendaftarkan "user" biasa
+    fun adminRegisterUser() {
+        registerUser()
+    }
 
     fun editUser() {
         println("\n=== ✏️ Edit User ===")
@@ -73,7 +82,6 @@ fun main() {
             nama = if (nNama.isBlank()) old.nama else nNama,
             noHp = if (nHp.isBlank()) old.noHp else nHp,
             password = if (nPass.isBlank()) old.password else nPass
-            // Role tidak berubah, ikut data lama
         )
         println("✅ Data user diupdate.")
     }
@@ -175,7 +183,6 @@ fun main() {
                 "1" -> {
                     println("\n--- KASIR ---")
                     println("Pilih Pelanggan:")
-                    // Filter hanya tampilkan user biasa, bukan admin
                     LaundryRepository.userList.filter { it.role == "user" }.forEach { println("- ID: ${it.id} | ${it.nama}") }
 
                     print("ID User: "); val uid = scanner.nextLine().toIntOrNull()
@@ -219,7 +226,47 @@ fun main() {
         }
     }
 
-    fun generateLaporan() { println("📊 Fitur Laporan (Segera Hadir)."); scanner.nextLine() }
+    // ================= 4. GENERATE LAPORAN (CSV EXCEL) =================
+    fun generateLaporan() {
+        println("\n--- 📊 GENERATE LAPORAN ---")
+
+        // Cek data kosong
+        if (LaundryRepository.transactionList.isEmpty()) {
+            println("❌ Belum ada data transaksi untuk diekspor.")
+            return
+        }
+
+        // Nama file otomatis pakai Tanggal-Jam biar unik
+        // Contoh: Laporan_2024-05-20_14-30.csv
+        val timestamp = getDateNow().replace(" ", "_").replace(":", "-")
+        val fileName = "Laporan_Laundry_$timestamp.csv"
+        val file = File(fileName)
+
+        try {
+            // Membuka file untuk ditulis
+            file.bufferedWriter().use { out ->
+                // 1. Tulis Header (Judul Kolom Excel)
+                out.write("ID,TANGGAL,PELANGGAN,LAYANAN,BERAT(KG),TOTAL(RP),STATUS\n")
+
+                // 2. Tulis Data Transaksi (Looping)
+                var totalOmset = 0L
+                LaundryRepository.transactionList.forEach { trx ->
+                    out.write("${trx.id},${trx.tanggal},${trx.namaUser},${trx.namaService},${trx.berat},${trx.totalHarga},${trx.status}\n")
+                    totalOmset += trx.totalHarga
+                }
+
+                // 3. Tulis Total Pendapatan di baris akhir
+                out.write(",,,,TOTAL PENDAPATAN,${totalOmset},\n")
+            }
+
+            println("✅ SUKSES! File Laporan telah dibuat.")
+            println("📂 Nama File: $fileName")
+            println("👉 Silakan buka file tersebut menggunakan Microsoft Excel.")
+
+        } catch (e: Exception) {
+            println("❌ Gagal membuat file: ${e.message}")
+        }
+    }
 
     // ================= ADMIN MENU =================
     fun adminMenu() {
@@ -227,7 +274,6 @@ fun main() {
         print("Username: "); val user = scanner.nextLine()
         print("Password: "); val pass = scanner.nextLine()
 
-        // 👇 UPDATE: Cek Role = "admin"
         val isAdmin = LaundryRepository.userList.any {
             it.username == user && it.password == pass && it.role == "admin"
         }
@@ -241,7 +287,7 @@ fun main() {
             println("2. Kelola Inventory")
             println("3. Kelola Layanan")
             println("4. Kelola Transaksi (Kasir)")
-            println("5. Laporan")
+            println("5. Laporan (Export Excel)")
             println("0. Logout")
             print("Admin > ")
 
@@ -257,18 +303,18 @@ fun main() {
                 "2" -> kelolaInventory()
                 "3" -> kelolaLayanan()
                 "4" -> kelolaTransaksi()
-                "5" -> generateLaporan()
+                "5" -> generateLaporan() // Panggil fungsi CSV
                 "0" -> return
             }
         }
     }
 
-    // ================= BUYER MENU (MENU PELANGGAN) =================
+    // ================= BUYER MENU =================
     fun buyerMenu(user: User) {
         println("\n👋 Selamat Datang, ${user.nama}!")
         while(true) {
             println("\n--- MENU PELANGGAN ---")
-            println("1. Cek Daftar Harga (Layanan)")
+            println("1. Cek Daftar Harga")
             println("2. Cek Status Cucian Saya")
             println("0. Logout")
             print("Pilih > ")
@@ -283,14 +329,10 @@ fun main() {
                 "2" -> {
                     println("\n--- RIWAYAT CUCIAN SAYA ---")
                     val myTrx = LaundryRepository.transactionList.filter { it.idUser == user.id }
-
-                    if (myTrx.isEmpty()) {
-                        println("Belum ada riwayat cucian.")
-                    } else {
+                    if (myTrx.isEmpty()) println("Belum ada riwayat.")
+                    else {
                         myTrx.forEach {
-                            println("#${it.id} [${it.tanggal}] ${it.namaService} - ${it.berat}kg")
-                            println("   Status: [ ${it.status} ] Total: Rp ${it.totalHarga}")
-                            println("------------------------------------------------")
+                            println("#${it.id} [${it.tanggal}] ${it.namaService} - ${it.status} (Rp ${it.totalHarga})")
                         }
                     }
                 }
@@ -299,13 +341,11 @@ fun main() {
         }
     }
 
-    // Fungsi Login User (Buyer)
     fun loginUser() {
         println("\n=== 👤 Login User ===")
         print("Username: "); val username = scanner.nextLine()
         print("Password: "); val password = scanner.nextLine()
 
-        // 👇 UPDATE: Cek Role = "user"
         val authenticatedUser = LaundryRepository.userList.find {
             it.username == username && it.password == password && it.role == "user"
         }
@@ -314,7 +354,7 @@ fun main() {
             println("✅ Login Berhasil!")
             buyerMenu(authenticatedUser)
         } else {
-            println("❌ Login Gagal. Username/Password salah atau akun tidak ditemukan.")
+            println("❌ Login Gagal.")
         }
     }
 
@@ -325,7 +365,7 @@ fun main() {
         println("=========================================")
         println("1. Login Admin")
         println("2. Login User")
-        println("3. Register (User Baru)")
+        println("3. Register")
         println("0. Exit")
         print("Pilih > ")
         when (scanner.nextLine()) {
