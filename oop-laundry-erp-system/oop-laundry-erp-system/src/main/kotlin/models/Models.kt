@@ -36,5 +36,8 @@ data class Transaction(
     val berat: Double,
     val totalHarga: Long,
     var status: String = "Diterima",
-    val tanggal: String
+    val tanggalMasuk: String,
+    val estimasiSelesai: String, // 👈 Baru: Tanggal kelar
+    var isPaid: Boolean = false, // 👈 Baru: Status Pembayaran
+    var paymentMethod: String = "-" // 👈 Baru: Metode Bayar
 )

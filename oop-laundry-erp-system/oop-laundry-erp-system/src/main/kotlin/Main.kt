@@ -8,7 +8,6 @@ import com.erp.laundry.routes.inventoryRouting
 import com.erp.laundry.routes.serviceRouting
 import com.erp.laundry.routes.transactionRouting
 import com.erp.laundry.routes.reportRouting
-import com.erp.laundry.routes.userRouting
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
@@ -17,6 +16,7 @@ import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.routing.*
 import java.util.Scanner
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.io.File
 
 fun Application.module() {
@@ -44,9 +44,20 @@ fun main() {
     fun genInvId() = (LaundryRepository.inventoryList.maxOfOrNull { it.id } ?: 0) + 1
     fun genSvcId() = (LaundryRepository.serviceList.maxOfOrNull { it.id } ?: 0) + 1
     fun genTrxId() = (LaundryRepository.transactionList.maxOfOrNull { it.id } ?: 0) + 1
-    fun getDateNow() = LocalDateTime.now().toString().take(16).replace("T", " ")
 
-    // ================= FUNGSI USER CRUD =================
+    // Format Tanggal (dd/MM/yyyy) sesuai request tampilan tagihan
+    val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+
+    fun getDateNow(): String {
+        return LocalDateTime.now().format(formatter)
+    }
+
+    // Hitung Estimasi Selesai (Sekarang + Durasi Layanan)
+    fun getEstimasi(hari: Int): String {
+        return LocalDateTime.now().plusDays(hari.toLong()).format(formatter)
+    }
+
+    // ================= FUNGSI USER CRUD (TETAP) =================
     fun registerUser() {
         println("\n=== 📝 Registrasi Akun Baru ===")
         print("Nama Lengkap: "); val nama = scanner.nextLine()
@@ -60,9 +71,7 @@ fun main() {
         println("✅ Akun berhasil dibuat.")
     }
 
-    fun adminRegisterUser() {
-        registerUser()
-    }
+    fun adminRegisterUser() { registerUser() }
 
     fun editUser() {
         println("\n=== ✏️ Edit User ===")
@@ -89,7 +98,6 @@ fun main() {
     fun hapusUser() {
         print("Username yg mau dihapus: "); val target = scanner.nextLine()
         val targetUser = LaundryRepository.userList.find { it.username == target }
-
         if (targetUser == null) { println("❌ User tidak ditemukan."); return }
         if (targetUser.role == "admin") { println("❌ Tidak bisa menghapus Admin."); return }
 
@@ -97,7 +105,7 @@ fun main() {
         println("✅ User dihapus.")
     }
 
-    // ================= 1. KELOLA INVENTORY =================
+    // ================= 1. KELOLA INVENTORY (TETAP) =================
     fun kelolaInventory() {
         while(true) {
             println("\n--- 📦 KELOLA INVENTORY ---")
@@ -133,7 +141,7 @@ fun main() {
         }
     }
 
-    // ================= 2. KELOLA LAYANAN =================
+    // ================= 2. KELOLA LAYANAN (TETAP) =================
     fun kelolaLayanan() {
         while(true) {
             println("\n--- 🛠 KELOLA LAYANAN ---")
@@ -169,7 +177,7 @@ fun main() {
         }
     }
 
-    // ================= 3. KELOLA TRANSAKSI (KASIR) =================
+    // ================= 3. KELOLA TRANSAKSI (UPDATE: DATE & PAYMENT) =================
     fun kelolaTransaksi() {
         while(true) {
             println("\n--- 💰 KELOLA TRANSAKSI ---")
@@ -190,7 +198,7 @@ fun main() {
                     if(user == null) { println("❌ User tidak ditemukan."); return }
 
                     println("\nPilih Layanan:")
-                    LaundryRepository.serviceList.forEach { println("- ID: ${it.id} | ${it.namaLayanan} @ ${it.hargaPerKg}") }
+                    LaundryRepository.serviceList.forEach { println("- ID: ${it.id} | ${it.namaLayanan} @ ${it.hargaPerKg} (Est: ${it.estimasiHari} hari)") }
                     print("ID Layanan: "); val sid = scanner.nextLine().toIntOrNull()
                     val svc = LaundryRepository.serviceList.find { it.id == sid }
                     if(svc == null) { println("❌ Layanan tidak ditemukan."); return }
@@ -198,18 +206,36 @@ fun main() {
                     print("Berat (Kg): "); val berat = scanner.nextLine().toDoubleOrNull() ?: 0.0
                     val total = (berat * svc.hargaPerKg).toLong()
 
-                    println("Total: Rp $total. Simpan? (y/n)"); val cfm = scanner.nextLine()
+                    // Hitung Tanggal Otomatis
+                    val tglMasuk = getDateNow()
+                    val tglSelesai = getEstimasi(svc.estimasiHari)
+
+                    println("Total: Rp $total. Estimasi Selesai: $tglSelesai.")
+                    print("Simpan? (y/n): "); val cfm = scanner.nextLine()
+
                     if(cfm.lowercase() == "y") {
                         LaundryRepository.transactionList.add(Transaction(
-                            genTrxId(), user.id, user.nama, svc.id, svc.namaLayanan, berat, total, "Diterima", getDateNow()
+                            id = genTrxId(),
+                            idUser = user.id,
+                            namaUser = user.nama,
+                            idService = svc.id,
+                            namaService = svc.namaLayanan,
+                            berat = berat,
+                            totalHarga = total,
+                            status = "Diterima",
+                            tanggalMasuk = tglMasuk,
+                            estimasiSelesai = tglSelesai,
+                            isPaid = false,       // Default belum bayar
+                            paymentMethod = "-"   // Default kosong
                         ))
-                        println("✅ Transaksi Disimpan!")
+                        println("✅ Transaksi Disimpan! Tagihan dikirim ke akun ${user.nama}.")
                     }
                 }
                 "2" -> {
                     println("\n--- RIWAYAT ---")
                     LaundryRepository.transactionList.forEach {
-                        println("#${it.id} [${it.tanggal}] ${it.namaUser} - ${it.status}")
+                        val bayar = if(it.isPaid) "LUNAS" else "BELUM BAYAR"
+                        println("#${it.id} [${it.tanggalMasuk}] ${it.namaUser} - ${it.status} ($bayar)")
                     }
                 }
                 "3" -> {
@@ -226,45 +252,87 @@ fun main() {
         }
     }
 
-    // ================= 4. GENERATE LAPORAN (CSV EXCEL) =================
+    // ================= 4. GENERATE LAPORAN (TETAP) =================
     fun generateLaporan() {
         println("\n--- 📊 GENERATE LAPORAN ---")
-
-        // Cek data kosong
         if (LaundryRepository.transactionList.isEmpty()) {
             println("❌ Belum ada data transaksi untuk diekspor.")
             return
         }
 
-        // Nama file otomatis pakai Tanggal-Jam biar unik
-        // Contoh: Laporan_2024-05-20_14-30.csv
-        val timestamp = getDateNow().replace(" ", "_").replace(":", "-")
+        val timestamp = LocalDateTime.now().toString().take(16).replace("T", "_").replace(":", "-")
         val fileName = "Laporan_Laundry_$timestamp.csv"
         val file = File(fileName)
 
         try {
-            // Membuka file untuk ditulis
             file.bufferedWriter().use { out ->
-                // 1. Tulis Header (Judul Kolom Excel)
-                out.write("ID,TANGGAL,PELANGGAN,LAYANAN,BERAT(KG),TOTAL(RP),STATUS\n")
-
-                // 2. Tulis Data Transaksi (Looping)
+                out.write("ID,TANGGAL,PELANGGAN,LAYANAN,BERAT(KG),TOTAL(RP),STATUS,PEMBAYARAN\n")
                 var totalOmset = 0L
                 LaundryRepository.transactionList.forEach { trx ->
-                    out.write("${trx.id},${trx.tanggal},${trx.namaUser},${trx.namaService},${trx.berat},${trx.totalHarga},${trx.status}\n")
+                    val statusBayar = if(trx.isPaid) "LUNAS" else "BELUM BAYAR"
+                    out.write("${trx.id},${trx.tanggalMasuk},${trx.namaUser},${trx.namaService},${trx.berat},${trx.totalHarga},${trx.status},$statusBayar\n")
                     totalOmset += trx.totalHarga
                 }
-
-                // 3. Tulis Total Pendapatan di baris akhir
-                out.write(",,,,TOTAL PENDAPATAN,${totalOmset},\n")
+                out.write(",,,,TOTAL PENDAPATAN,${totalOmset},,\n")
             }
-
             println("✅ SUKSES! File Laporan telah dibuat.")
             println("📂 Nama File: $fileName")
-            println("👉 Silakan buka file tersebut menggunakan Microsoft Excel.")
-
         } catch (e: Exception) {
             println("❌ Gagal membuat file: ${e.message}")
+        }
+    }
+
+    // ================= FITUR BARU: PEMBAYARAN USER =================
+    fun bayarTagihan(user: User) {
+        println("\n🔄 Cek Tagihan...")
+        val unpaidTrx = LaundryRepository.transactionList.filter { it.idUser == user.id && !it.isPaid }
+
+        if (unpaidTrx.isEmpty()) {
+            println("✅ Tidak ada tagihan yang perlu dibayar.")
+            return
+        }
+
+        println("Tagihan Belum Lunas:")
+        unpaidTrx.forEach { println("ID: ${it.id} - Rp ${it.totalHarga} (${it.namaService})") }
+
+        print("\nMasukkan ID Tagihan yang mau dibayar: ")
+        val tid = scanner.nextLine().toIntOrNull()
+        val trx = unpaidTrx.find { it.id == tid }
+
+        if (trx == null) {
+            println("❌ ID salah."); return
+        }
+
+        // TAMPILAN SESUAI REQUEST
+        println("\n========================================")
+        println("          TAGIHAN LAUNDRY")
+        println("========================================")
+        println("Nama             : ${trx.namaUser}")
+        println("Berat            : ${trx.berat} kg")
+        println("Total            : Rp. ${trx.totalHarga}")
+        println("Tanggal Masuk    : ${trx.tanggalMasuk}")
+        println("Estimasi Selesai : ${trx.estimasiSelesai}")
+        println("\nSILAHKAN PILIH METODE PEMBAYARAN")
+        println("1. VA (Virtual Account)")
+        print("Pilih > ")
+
+        if (scanner.nextLine() == "1") {
+            val vaNumber = "3333${user.noHp}" // Simulasi No VA
+            println("\nNO Virtual Account ($vaNumber) (DI COPY PASTE KE INVOICE)")
+            print("\nINV : ")
+            scanner.nextLine() // User input bukti transfer dummy
+
+            println("\n[1] SELESAI")
+            print("Konfirmasi > ")
+            if(scanner.nextLine() == "1") {
+                trx.isPaid = true
+                trx.paymentMethod = "Virtual Account"
+                println("\n✅ Pembayaran Berhasil! Tagihan selesai.")
+            } else {
+                println("❌ Batal.")
+            }
+        } else {
+            println("❌ Metode belum tersedia.")
         }
     }
 
@@ -303,39 +371,40 @@ fun main() {
                 "2" -> kelolaInventory()
                 "3" -> kelolaLayanan()
                 "4" -> kelolaTransaksi()
-                "5" -> generateLaporan() // Panggil fungsi CSV
+                "5" -> generateLaporan()
                 "0" -> return
             }
         }
     }
 
-    // ================= BUYER MENU =================
+    // ================= BUYER MENU (UPDATE) =================
     fun buyerMenu(user: User) {
         println("\n👋 Selamat Datang, ${user.nama}!")
         while(true) {
             println("\n--- MENU PELANGGAN ---")
             println("1. Cek Daftar Harga")
-            println("2. Cek Status Cucian Saya")
+            println("2. Cek Status Cucian")
+            println("3. Bayar Tagihan 💲") // Menu Baru
             println("0. Logout")
             print("Pilih > ")
 
             when(scanner.nextLine()) {
                 "1" -> {
-                    println("\n--- DAFTAR HARGA ---")
                     LaundryRepository.serviceList.forEach {
                         println("- ${it.namaLayanan}: Rp ${it.hargaPerKg}/kg (${it.estimasiHari} hari)")
                     }
                 }
                 "2" -> {
-                    println("\n--- RIWAYAT CUCIAN SAYA ---")
                     val myTrx = LaundryRepository.transactionList.filter { it.idUser == user.id }
                     if (myTrx.isEmpty()) println("Belum ada riwayat.")
                     else {
                         myTrx.forEach {
-                            println("#${it.id} [${it.tanggal}] ${it.namaService} - ${it.status} (Rp ${it.totalHarga})")
+                            val bayar = if(it.isPaid) "LUNAS" else "BELUM BAYAR"
+                            println("#${it.id} [${it.status}] - Rp ${it.totalHarga} ($bayar)")
                         }
                     }
                 }
+                "3" -> bayarTagihan(user) // Masuk ke fungsi pembayaran
                 "0" -> return
             }
         }

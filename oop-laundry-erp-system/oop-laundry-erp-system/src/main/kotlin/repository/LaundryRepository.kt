@@ -1,6 +1,6 @@
 package com.erp.laundry.repository
 
-import com.erp.laundry.models.* // Ambil semua model dari package models
+import com.erp.laundry.models.*
 
 object LaundryRepository {
     val userList = mutableListOf(
