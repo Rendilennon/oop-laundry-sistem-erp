@@ -4,7 +4,7 @@ import com.erp.laundry.models.* // Ambil semua model dari package models
 
 object LaundryRepository {
     val userList = mutableListOf(
-        User(1, "Admin", "08123456789", "admin", "admin123"),
+        User(1, "Admin", "08123456789", "admin", "admin123", "admin")
     )
 
     val inventoryList = mutableListOf(

@@ -16,8 +16,8 @@ import java.time.LocalDateTime
 fun Application.module() {
     install(ContentNegotiation) { jackson() }
     routing {
-        userRouting()
-        appRouting()
+        userRouting() // Route User (Admin & Buyer separated)
+        appRouting()  // Route Inventory, Service, Transaction
     }
 }
 
@@ -37,21 +37,23 @@ fun main() {
     fun genTrxId() = (LaundryRepository.transactionList.maxOfOrNull { it.id } ?: 0) + 1
     fun getDateNow() = LocalDateTime.now().toString().take(16).replace("T", " ")
 
-    // CRUD function
+    // ================= FUNGSI USER CRUD =================
     fun registerUser() {
         println("\n=== 📝 Registrasi Akun Baru ===")
         print("Nama Lengkap: "); val nama = scanner.nextLine()
         print("No HP: "); val noHp = scanner.nextLine()
         print("Username: "); val user = scanner.nextLine()
         if (LaundryRepository.userList.any { it.username.equals(user, ignoreCase = true) }) {
-            println("Username sudah ada."); return
+            println("❌ Username sudah ada."); return
         }
         print("Password: "); val pass = scanner.nextLine()
-        LaundryRepository.userList.add(User(genUserId(), nama, noHp, user, pass))
-        println("Akun berhasil dibuat.")
+
+        // 👇 UPDATE: Set default role sebagai "user" (pembeli)
+        LaundryRepository.userList.add(User(genUserId(), nama, noHp, user, pass, role = "user"))
+        println("✅ Akun berhasil dibuat.")
     }
 
-    fun adminRegisterUser() { registerUser() }
+    fun adminRegisterUser() { registerUser() } // Admin juga mendaftarkan "user" biasa
 
     fun editUser() {
         println("\n=== ✏️ Edit User ===")
@@ -62,7 +64,7 @@ fun main() {
         if (index == -1) { println("❌ User tidak ditemukan."); return }
 
         val old = LaundryRepository.userList[index]
-        println("User Ditemukan: ${old.nama}")
+        println("User Ditemukan: ${old.nama} (Role: ${old.role})")
         print("Nama Baru (Enter utk skip): "); val nNama = scanner.nextLine()
         print("No HP Baru (Enter utk skip): "); val nHp = scanner.nextLine()
         print("Pass Baru (Enter utk skip): "); val nPass = scanner.nextLine()
@@ -71,15 +73,20 @@ fun main() {
             nama = if (nNama.isBlank()) old.nama else nNama,
             noHp = if (nHp.isBlank()) old.noHp else nHp,
             password = if (nPass.isBlank()) old.password else nPass
+            // Role tidak berubah, ikut data lama
         )
         println("✅ Data user diupdate.")
     }
 
     fun hapusUser() {
         print("Username yg mau dihapus: "); val target = scanner.nextLine()
-        if (target == "admin") { println("❌ Admin tidak bisa dihapus."); return }
-        val removed = LaundryRepository.userList.removeIf { it.username == target }
-        if (removed) println("✅ User dihapus.") else println("❌ User tidak ditemukan.")
+        val targetUser = LaundryRepository.userList.find { it.username == target }
+
+        if (targetUser == null) { println("❌ User tidak ditemukan."); return }
+        if (targetUser.role == "admin") { println("❌ Tidak bisa menghapus Admin."); return }
+
+        LaundryRepository.userList.remove(targetUser)
+        println("✅ User dihapus.")
     }
 
     // ================= 1. KELOLA INVENTORY =================
@@ -168,7 +175,9 @@ fun main() {
                 "1" -> {
                     println("\n--- KASIR ---")
                     println("Pilih Pelanggan:")
-                    LaundryRepository.userList.forEach { println("- ID: ${it.id} | ${it.nama}") }
+                    // Filter hanya tampilkan user biasa, bukan admin
+                    LaundryRepository.userList.filter { it.role == "user" }.forEach { println("- ID: ${it.id} | ${it.nama}") }
+
                     print("ID User: "); val uid = scanner.nextLine().toIntOrNull()
                     val user = LaundryRepository.userList.find { it.id == uid }
                     if(user == null) { println("❌ User tidak ditemukan."); return }
@@ -218,9 +227,12 @@ fun main() {
         print("Username: "); val user = scanner.nextLine()
         print("Password: "); val pass = scanner.nextLine()
 
-        // Login pakai username 'admin'
-        val isAdmin = LaundryRepository.userList.any { it.username == user && it.password == pass && it.username == "admin" }
-        if (!isAdmin) { println("❌ Login Gagal."); return }
+        // 👇 UPDATE: Cek Role = "admin"
+        val isAdmin = LaundryRepository.userList.any {
+            it.username == user && it.password == pass && it.role == "admin"
+        }
+
+        if (!isAdmin) { println("❌ Login Gagal. Anda bukan admin."); return }
 
         println("✅ Login Sukses!")
         while (true) {
@@ -252,7 +264,6 @@ fun main() {
     }
 
     // ================= BUYER MENU (MENU PELANGGAN) =================
-    // Ini adalah menu khusus User yang sudah Login
     fun buyerMenu(user: User) {
         println("\n👋 Selamat Datang, ${user.nama}!")
         while(true) {
@@ -271,7 +282,6 @@ fun main() {
                 }
                 "2" -> {
                     println("\n--- RIWAYAT CUCIAN SAYA ---")
-                    // Filter hanya transaksi milik user yang sedang login
                     val myTrx = LaundryRepository.transactionList.filter { it.idUser == user.id }
 
                     if (myTrx.isEmpty()) {
@@ -285,25 +295,24 @@ fun main() {
                     }
                 }
                 "0" -> return
-                else -> println("❌ Pilihan salah.")
             }
         }
     }
 
-    // Fungsi Login User (Sudah Diperbaiki)
+    // Fungsi Login User (Buyer)
     fun loginUser() {
         println("\n=== 👤 Login User ===")
         print("Username: "); val username = scanner.nextLine()
         print("Password: "); val password = scanner.nextLine()
 
-        // Mencari user yang cocok dan BUKAN admin
+        // 👇 UPDATE: Cek Role = "user"
         val authenticatedUser = LaundryRepository.userList.find {
-            it.username == username && it.password == password && it.username != "admin"
+            it.username == username && it.password == password && it.role == "user"
         }
 
         if (authenticatedUser != null) {
             println("✅ Login Berhasil!")
-            buyerMenu(authenticatedUser) // Masuk ke menu khusus Buyer
+            buyerMenu(authenticatedUser)
         } else {
             println("❌ Login Gagal. Username/Password salah atau akun tidak ditemukan.")
         }
@@ -316,7 +325,7 @@ fun main() {
         println("=========================================")
         println("1. Login Admin")
         println("2. Login User")
-        println("3. Register")
+        println("3. Register (User Baru)")
         println("0. Exit")
         print("Pilih > ")
         when (scanner.nextLine()) {

@@ -6,7 +6,8 @@ data class User(
     val nama: String,
     val noHp: String,
     val username: String,
-    var password: String
+    var password: String,
+    val role: String
 )
 
 // 2. Model Inventory
