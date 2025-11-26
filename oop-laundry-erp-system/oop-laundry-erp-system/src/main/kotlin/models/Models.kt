@@ -7,7 +7,8 @@ data class User(
     val noHp: String,
     val username: String,
     var password: String,
-    val role: String
+    val role: String,
+    var alamat: String
 )
 
 // 2. Model Inventory
@@ -33,8 +34,8 @@ data class Transaction(
     val namaUser: String,
     val idService: Int,
     val namaService: String,
-    val berat: Double,
-    val totalHarga: Long,
+    var berat: Double,
+    var totalHarga: Long,
     var status: String = "Diterima",
     val tanggalMasuk: String,
     val estimasiSelesai: String, // 👈 Baru: Tanggal kelar

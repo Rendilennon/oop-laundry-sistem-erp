@@ -4,7 +4,7 @@ import com.erp.laundry.models.*
 
 object LaundryRepository {
     val userList = mutableListOf(
-        User(1, "Admin", "08123456789", "admin", "admin123", "admin")
+        User(1, "Admin", "08123456789", "admin", "admin123", "admin", "Kantor Pusat Laundry, Jakarta No 5")
     )
 
     val inventoryList = mutableListOf(
