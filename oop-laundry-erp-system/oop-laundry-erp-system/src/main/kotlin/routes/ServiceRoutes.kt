@@ -12,22 +12,23 @@ fun Route.serviceRouting() {
     route("/api/services") {
 
         get {
-            call.respond(HttpStatusCode.OK, LaundryRepository.serviceList)
+            call.respond(HttpStatusCode.OK, LaundryRepository.getServices())
         }
 
         post {
             val newSvc = call.receive<Service>()
-            LaundryRepository.serviceList.add(newSvc)
+            LaundryRepository.addService(newSvc)
             call.respond(HttpStatusCode.Created, newSvc)
         }
 
         put("/{id}") {
-            val id = call.parameters["id"]?.toIntOrNull()
+            val id = call.parameters["id"]?.toIntOrNull() ?: 0
             val updateData = call.receive<Service>()
-            val index = LaundryRepository.serviceList.indexOfFirst { it.id == id }
 
-            if (index != -1) {
-                LaundryRepository.serviceList[index] = updateData
+            val svc = LaundryRepository.findServiceById(id)
+
+            if (svc != null) {
+                svc.hargaPerKg = updateData.hargaPerKg // Update property
                 call.respond(HttpStatusCode.OK, "Layanan diupdate")
             } else {
                 call.respond(HttpStatusCode.NotFound)
@@ -35,10 +36,7 @@ fun Route.serviceRouting() {
         }
 
         delete("/{id}") {
-            val id = call.parameters["id"]?.toIntOrNull()
-            val removed = LaundryRepository.serviceList.removeIf { it.id == id }
-            if (removed) call.respond(HttpStatusCode.OK, "Layanan dihapus")
-            else call.respond(HttpStatusCode.NotFound)
+            call.respond(HttpStatusCode.NotImplemented, "Fitur Delete via API butuh update Repo")
         }
     }
 }

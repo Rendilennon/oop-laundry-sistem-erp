@@ -16,7 +16,7 @@ fun Route.userRouting() {
         route("/admin") {
             // GET: Hanya ambil yang role-nya "admin"
             get {
-                val admins = LaundryRepository.userList.filter { it.role == "admin" }
+                val admins = LaundryRepository.getUsers().filter { it.role == "admin" }
                 call.respond(HttpStatusCode.OK, admins)
             }
 
@@ -24,14 +24,14 @@ fun Route.userRouting() {
             post {
                 try {
                     val newUser = call.receive<User>()
-                    // Paksa role jadi admin, alamat akan ikut dari input JSON
                     val adminUser = newUser.copy(role = "admin")
 
-                    if (LaundryRepository.userList.any { it.username == adminUser.username }) {
+                    if (LaundryRepository.findUserByUsername(adminUser.username) != null) {
                         call.respond(HttpStatusCode.Conflict, "Username sudah ada")
                         return@post
                     }
-                    LaundryRepository.userList.add(adminUser)
+
+                    LaundryRepository.addUser(adminUser)
                     call.respond(HttpStatusCode.Created, adminUser)
                 } catch (e: Exception) {
                     call.respond(HttpStatusCode.BadRequest, "Format JSON salah: ${e.localizedMessage}")
@@ -44,7 +44,7 @@ fun Route.userRouting() {
         route("/buyer") {
             // GET: Hanya ambil yang role-nya "user"
             get {
-                val buyers = LaundryRepository.userList.filter { it.role == "user" }
+                val buyers = LaundryRepository.getUsers().filter { it.role == "user" }
                 call.respond(HttpStatusCode.OK, buyers)
             }
 
@@ -52,14 +52,14 @@ fun Route.userRouting() {
             post {
                 try {
                     val newUser = call.receive<User>()
-                    // Paksa role jadi user
                     val buyerUser = newUser.copy(role = "user")
 
-                    if (LaundryRepository.userList.any { it.username == buyerUser.username }) {
+                    if (LaundryRepository.findUserByUsername(buyerUser.username) != null) {
                         call.respond(HttpStatusCode.Conflict, "Username sudah ada")
                         return@post
                     }
-                    LaundryRepository.userList.add(buyerUser)
+
+                    LaundryRepository.addUser(buyerUser)
                     call.respond(HttpStatusCode.Created, buyerUser)
                 } catch (e: Exception) {
                     call.respond(HttpStatusCode.BadRequest, "Format JSON salah: ${e.localizedMessage}")
@@ -72,27 +72,34 @@ fun Route.userRouting() {
         // GET BY ID: Lihat detail user spesifik
         get("/{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
-            val user = LaundryRepository.userList.find { it.id == id }
+            val user = if (id != null) LaundryRepository.findUserById(id) else null
+
             if (user != null) call.respond(HttpStatusCode.OK, user)
             else call.respond(HttpStatusCode.NotFound, "User tidak ditemukan")
         }
 
-        // PUT: Update User (Penting untuk Ganti Alamat/Password via API)
+        // PUT: Update User
         put("/{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
             try {
                 val updateData = call.receive<User>()
-                val index = LaundryRepository.userList.indexOfFirst { it.id == id }
+
+                // Cari index di dalam list public
+                val index = LaundryRepository.getUsers().indexOfFirst { it.id == id }
 
                 if (index != -1) {
-                    val oldUser = LaundryRepository.userList[index]
-                    // Update data (termasuk Alamat baru jika ada di JSON)
-                    LaundryRepository.userList[index] = oldUser.copy(
+                    val oldUser = LaundryRepository.getUsers()[index]
+
+                    // Buat object baru
+                    val updatedUser = oldUser.copy(
                         nama = updateData.nama,
                         noHp = updateData.noHp,
                         password = updateData.password,
-                        alamat = updateData.alamat // Update alamat
+                        alamat = updateData.alamat
                     )
+
+                    LaundryRepository.updateUser(index, updatedUser)
+
                     call.respond(HttpStatusCode.OK, "User berhasil diupdate")
                 } else {
                     call.respond(HttpStatusCode.NotFound, "User tidak ditemukan")
@@ -109,14 +116,20 @@ fun Route.userRouting() {
                 call.respond(HttpStatusCode.BadRequest, "ID harus angka")
                 return@delete
             }
-            val removed = LaundryRepository.userList.removeIf { it.id == id }
-            if (removed) call.respond(HttpStatusCode.OK, "Akun berhasil dihapus")
-            else call.respond(HttpStatusCode.NotFound, "Akun tidak ditemukan")
+
+            val userToDelete = LaundryRepository.findUserById(id)
+
+            if (userToDelete != null) {
+                LaundryRepository.removeUser(userToDelete)
+                call.respond(HttpStatusCode.OK, "Akun berhasil dihapus")
+            } else {
+                call.respond(HttpStatusCode.NotFound, "Akun tidak ditemukan")
+            }
         }
 
         // GET ALL (Gabungan)
         get {
-            call.respond(HttpStatusCode.OK, LaundryRepository.userList)
+            call.respond(HttpStatusCode.OK, LaundryRepository.getUsers())
         }
     }
 }

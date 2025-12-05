@@ -1,35 +1,41 @@
 package com.erp.laundry.models
 
-// 1. Model User
+// 1. ABSTRACTION & INHERITANCE: Superclass
+// Semua data memiliki ID, di wariskan dari sini.
+abstract class BaseEntity {
+    abstract val id: Int
+}
+
+// 2. Subclass User
 data class User(
-    val id: Int,
+    override val id: Int,
     val nama: String,
     val noHp: String,
     val username: String,
     var password: String,
     val role: String,
-    var alamat: String
-)
+    var alamat: String = "-"
+) : BaseEntity()
 
-// 2. Model Inventory
+// 3. Subclass Inventory
 data class Inventory(
-    val id: Int,
+    override val id: Int,
     val namaBarang: String,
     var qty: Int,
     val satuan: String
-)
+) : BaseEntity()
 
-// 3. Model Service
+// 4. Subclass Service
 data class Service(
-    val id: Int,
+    override val id: Int,
     val namaLayanan: String,
     var hargaPerKg: Long,
     val estimasiHari: Int
-)
+) : BaseEntity()
 
-// 4. Model Transaction
+// 5. Subclass Transaction
 data class Transaction(
-    val id: Int,
+    override val id: Int,
     val idUser: Int,
     val namaUser: String,
     val idService: Int,
@@ -38,7 +44,7 @@ data class Transaction(
     var totalHarga: Long,
     var status: String = "Diterima",
     val tanggalMasuk: String,
-    val estimasiSelesai: String, // 👈 Baru: Tanggal kelar
-    var isPaid: Boolean = false, // 👈 Baru: Status Pembayaran
-    var paymentMethod: String = "-" // 👈 Baru: Metode Bayar
-)
+    val estimasiSelesai: String,
+    var isPaid: Boolean = false,
+    var paymentMethod: String = "-"
+) : BaseEntity()

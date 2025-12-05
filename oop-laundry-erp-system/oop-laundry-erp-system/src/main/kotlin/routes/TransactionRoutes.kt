@@ -11,22 +11,23 @@ fun Route.transactionRouting() {
 
         // GET ALL
         get {
-            call.respond(HttpStatusCode.OK, LaundryRepository.transactionList)
+            // FIX: Gunakan getTransactions()
+            call.respond(HttpStatusCode.OK, LaundryRepository.getTransactions())
         }
 
         // GET BY ID (Cek Resi)
         get("/{id}") {
-            val id = call.parameters["id"]?.toIntOrNull()
-            val trx = LaundryRepository.transactionList.find { it.id == id }
+            val id = call.parameters["id"]?.toIntOrNull() ?: 0
+            val trx = LaundryRepository.findTransactionById(id)
+
             if (trx != null) call.respond(HttpStatusCode.OK, trx)
             else call.respond(HttpStatusCode.NotFound, "Transaksi tidak ditemukan")
         }
 
         // GET BY USER ID (Riwayat User Tertentu)
-        // URL: /api/transactions/user/2
         get("/user/{userId}") {
             val userId = call.parameters["userId"]?.toIntOrNull()
-            val history = LaundryRepository.transactionList.filter { it.idUser == userId }
+            val history = LaundryRepository.getTransactions().filter { it.idUser == userId }
             call.respond(HttpStatusCode.OK, history)
         }
     }

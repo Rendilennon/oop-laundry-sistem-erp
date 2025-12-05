@@ -12,7 +12,8 @@ fun Route.appRouting() {
     route("/api/inventory") {
         // 200 OK
         get {
-            call.respond(HttpStatusCode.OK, LaundryRepository.inventoryList)
+            // 🛠️ FIX: Gunakan getInventory()
+            call.respond(HttpStatusCode.OK, LaundryRepository.getInventory())
         }
 
         // 404 Not Found
@@ -22,7 +23,9 @@ fun Route.appRouting() {
                 call.respond(HttpStatusCode.BadRequest, "ID salah")
                 return@get
             }
-            val item = LaundryRepository.inventoryList.find { it.id == id }
+
+            val item = LaundryRepository.findInventoryById(id)
+
             if (item != null) call.respond(HttpStatusCode.OK, item)
             else call.respond(HttpStatusCode.NotFound, "Barang tidak ditemukan")
         }
@@ -31,7 +34,7 @@ fun Route.appRouting() {
     // === API SERVICES ===
     route("/api/services") {
         get {
-            call.respond(HttpStatusCode.OK, LaundryRepository.serviceList)
+            call.respond(HttpStatusCode.OK, LaundryRepository.getServices())
         }
 
         get("/{id}") {
@@ -40,7 +43,9 @@ fun Route.appRouting() {
                 call.respond(HttpStatusCode.BadRequest, "ID salah")
                 return@get
             }
-            val svc = LaundryRepository.serviceList.find { it.id == id }
+
+            val svc = LaundryRepository.findServiceById(id)
+
             if (svc != null) call.respond(HttpStatusCode.OK, svc)
             else call.respond(HttpStatusCode.NotFound, "Layanan tidak ditemukan")
         }
@@ -49,7 +54,7 @@ fun Route.appRouting() {
     // === API TRANSACTIONS ===
     route("/api/transactions") {
         get {
-            call.respond(HttpStatusCode.OK, LaundryRepository.transactionList)
+            call.respond(HttpStatusCode.OK, LaundryRepository.getTransactions())
         }
 
         get("/{id}") {
@@ -59,7 +64,9 @@ fun Route.appRouting() {
                 return@get
             }
 
-            val trx = LaundryRepository.transactionList.find { it.id == id }
+            // 🛠️ FIX: Gunakan findTransactionById()
+            val trx = LaundryRepository.findTransactionById(id)
+
             if (trx != null) {
                 call.respond(HttpStatusCode.OK, trx)
             } else {

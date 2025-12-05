@@ -13,17 +13,17 @@ fun Route.inventoryRouting() {
 
         // GET: Lihat semua stok
         get {
-            call.respond(HttpStatusCode.OK, LaundryRepository.inventoryList)
+            call.respond(HttpStatusCode.OK, LaundryRepository.getInventory())
         }
 
         // POST: Tambah Barang Baru
         post {
             try {
                 val newItem = call.receive<Inventory>()
-                LaundryRepository.inventoryList.add(newItem)
+                LaundryRepository.addInventory(newItem)
                 call.respond(HttpStatusCode.Created, newItem)
             } catch (e: Exception) {
-                call.respond(HttpStatusCode.BadRequest, "Format salah")
+                call.respond(HttpStatusCode.BadRequest, "Format salah: ${e.localizedMessage}")
             }
         }
 
@@ -31,11 +31,19 @@ fun Route.inventoryRouting() {
         put("/{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
             val updateData = call.receive<Inventory>()
-            val index = LaundryRepository.inventoryList.indexOfFirst { it.id == id }
+
+            // FIX: Cari index di list public dulu
+            val index = LaundryRepository.getInventory().indexOfFirst { it.id == id }
 
             if (index != -1) {
-                LaundryRepository.inventoryList[index] = updateData
-                call.respond(HttpStatusCode.OK, "Barang diupdate")
+                val item = LaundryRepository.findInventoryById(id!!)
+                if (item != null) {
+                    item.qty = updateData.qty // Update property langsung
+                    // item.namaBarang = updateData.namaBarang
+                    call.respond(HttpStatusCode.OK, "Barang diupdate")
+                } else {
+                    call.respond(HttpStatusCode.NotFound, "Barang tidak ditemukan")
+                }
             } else {
                 call.respond(HttpStatusCode.NotFound, "Barang tidak ditemukan")
             }
@@ -44,9 +52,14 @@ fun Route.inventoryRouting() {
         // DELETE: Hapus Barang
         delete("/{id}") {
             val id = call.parameters["id"]?.toIntOrNull()
-            val removed = LaundryRepository.inventoryList.removeIf { it.id == id }
-            if (removed) call.respond(HttpStatusCode.OK, "Barang dihapus")
-            else call.respond(HttpStatusCode.NotFound)
+            // FIX: Gunakan find lalu remove
+            val item = if(id != null) LaundryRepository.findInventoryById(id) else null
+
+            if (item != null) {
+                call.respond(HttpStatusCode.NotImplemented, "Fitur Delete via API perlu update Repository")
+            } else {
+                call.respond(HttpStatusCode.NotFound)
+            }
         }
     }
 }

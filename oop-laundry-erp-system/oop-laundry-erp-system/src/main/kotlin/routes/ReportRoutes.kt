@@ -11,10 +11,11 @@ fun Route.reportRouting() {
 
         // 1. DASHBOARD
         get("/dashboard") {
-            val totalTrx = LaundryRepository.transactionList.size
-            val totalOmset = LaundryRepository.transactionList.sumOf { it.totalHarga }
-            val totalUser = LaundryRepository.userList.count { it.role == "user" }
-            val totalStokItem = LaundryRepository.inventoryList.size
+            // FIX: Gunakan Getter semua
+            val totalTrx = LaundryRepository.getTransactions().size
+            val totalOmset = LaundryRepository.getTransactions().sumOf { it.totalHarga }
+            val totalUser = LaundryRepository.getUsers().count { it.role == "user" }
+            val totalStokItem = LaundryRepository.getInventory().size
 
             val dashboardData = mapOf(
                 "total_transaksi" to totalTrx,
@@ -25,16 +26,15 @@ fun Route.reportRouting() {
             call.respond(HttpStatusCode.OK, dashboardData)
         }
 
-        // 2. DAILY REPORT (Harian)
+        // 2. DAILY REPORT
         get("/daily") {
             val dateParam = call.request.queryParameters["date"]
             if (dateParam == null) {
-                call.respond(HttpStatusCode.BadRequest, "Harap masukkan parameter date (yyyy-MM-dd)")
+                call.respond(HttpStatusCode.BadRequest, "Harap masukkan parameter date")
                 return@get
             }
 
-            // 👇 PERBAIKAN: Gunakan 'tanggalMasuk'
-            val dailyTrx = LaundryRepository.transactionList.filter { it.tanggalMasuk.startsWith(dateParam) }
+            val dailyTrx = LaundryRepository.getTransactions().filter { it.tanggalMasuk.startsWith(dateParam) }
             val totalIncome = dailyTrx.sumOf { it.totalHarga }
 
             call.respond(HttpStatusCode.OK, mapOf(
@@ -45,16 +45,15 @@ fun Route.reportRouting() {
             ))
         }
 
-        // 3. MONTHLY REPORT (Bulanan)
+        // 3. MONTHLY REPORT
         get("/monthly") {
             val monthParam = call.request.queryParameters["month"]
             if (monthParam == null) {
-                call.respond(HttpStatusCode.BadRequest, "Harap masukkan parameter month (yyyy-MM)")
+                call.respond(HttpStatusCode.BadRequest, "Harap masukkan parameter month")
                 return@get
             }
 
-            // 👇 PERBAIKAN: Gunakan 'tanggalMasuk'
-            val monthlyTrx = LaundryRepository.transactionList.filter { it.tanggalMasuk.startsWith(monthParam) }
+            val monthlyTrx = LaundryRepository.getTransactions().filter { it.tanggalMasuk.startsWith(monthParam) }
             val totalIncome = monthlyTrx.sumOf { it.totalHarga }
 
             call.respond(HttpStatusCode.OK, mapOf(
@@ -65,16 +64,15 @@ fun Route.reportRouting() {
             ))
         }
 
-        // 4. YEARLY REPORT (Tahunan)
+        // 4. YEARLY REPORT
         get("/yearly") {
             val yearParam = call.request.queryParameters["year"]
             if (yearParam == null) {
-                call.respond(HttpStatusCode.BadRequest, "Harap masukkan parameter year (yyyy)")
+                call.respond(HttpStatusCode.BadRequest, "Harap masukkan parameter year")
                 return@get
             }
 
-            // 👇 PERBAIKAN: Gunakan 'tanggalMasuk'
-            val yearlyTrx = LaundryRepository.transactionList.filter { it.tanggalMasuk.startsWith(yearParam) }
+            val yearlyTrx = LaundryRepository.getTransactions().filter { it.tanggalMasuk.startsWith(yearParam) }
             val totalIncome = yearlyTrx.sumOf { it.totalHarga }
 
             call.respond(HttpStatusCode.OK, mapOf(
