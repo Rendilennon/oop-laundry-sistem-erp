@@ -55,4 +55,14 @@ object LaundryRepository {
     fun nextInvId() = (_inventory.maxOfOrNull { it.id } ?: 0) + 1
     fun nextSvcId() = (_services.maxOfOrNull { it.id } ?: 0) + 1
     fun nextTrxId() = (_transactions.maxOfOrNull { it.id } ?: 0) + 1
+
+    // Inventory Helpers
+    fun removeInventory(item: Inventory) { _inventory.remove(item) }
+
+    // Service Helpers
+    fun removeService(service: Service) { _services.remove(service) }
+
+    fun updateService(index: Int, service: Service) {
+        if(index in _services.indices) _services[index] = service
+    }
 }

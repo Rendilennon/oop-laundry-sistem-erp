@@ -28,7 +28,7 @@ data class Inventory(
 // 4. Subclass Service
 data class Service(
     override val id: Int,
-    val namaLayanan: String,
+    var namaLayanan: String,
     var hargaPerKg: Long,
     val estimasiHari: Int
 ) : BaseEntity()

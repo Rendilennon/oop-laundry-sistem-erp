@@ -21,37 +21,32 @@ fun Application.module() {
     }
 }
 
-// Global Scanner (Singleton pattern for input)
+// Global Scanner
 val scanner = Scanner(System.`in`)
 
 // ==========================================
-// 🏛️ OOP CONCEPTS: ABSTRACTION & POLYMORPHISM
+// 🏛️ OOP CONCEPTS
 // ==========================================
 
-// Abstract Base Class untuk Menu
 abstract class BaseMenu(val currentUser: User?) {
-    // Abstract method: Setiap menu WAJIB punya fungsi ini, tapi isinya beda-beda
     abstract fun show()
-
-    // Common method: Bisa dipakai semua anak kelas
-    fun logout() {
-        println("👋 Logout berhasil. Sampai jumpa!")
-    }
-
+    fun logout() { println("👋 Logout berhasil. Sampai jumpa!") }
     protected fun getDateNow() = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
 }
 
-// Class Menu Admin (Mewarisi BaseMenu)
+// ==========================================
+// 👑 ADMIN MENU
+// ==========================================
 class AdminMenu(admin: User) : BaseMenu(admin) {
 
     override fun show() {
         println("✅ Login Sukses sebagai Admin: ${currentUser?.nama}")
         while (true) {
-            println("\n--- DASHBOARD ADMIN (OOP) ---")
+            println("\n--- DASHBOARD ADMIN (FULL AKSES) ---")
             println("1. Kelola User")
-            println("2. Kelola Inventory")
-            println("3. Kelola Layanan")
-            println("4. Kelola Transaksi (Kasir)")
+            println("2. Kelola Inventory (Gudang)")
+            println("3. Kelola Layanan (Harga)")
+            println("4. Kelola Transaksi & Status")
             println("5. Laporan")
             println("0. Logout")
             print("Admin > ")
@@ -68,12 +63,11 @@ class AdminMenu(admin: User) : BaseMenu(admin) {
         }
     }
 
-    // --- Encapsulated Admin Logics ---
-
     private fun manageUser() {
         println("\n--- KELOLA USER ---")
         println("1. Tambah User Baru")
         println("2. Hapus User")
+        println("0. Kembali")
         print("Pilih > ")
         when(scanner.nextLine()) {
             "1" -> {
@@ -82,8 +76,6 @@ class AdminMenu(admin: User) : BaseMenu(admin) {
                 print("Alamat: "); val addr = scanner.nextLine()
                 print("Username: "); val user = scanner.nextLine()
                 print("Password: "); val pass = scanner.nextLine()
-
-                // Akses Repository lewat method (Encapsulation)
                 LaundryRepository.addUser(User(LaundryRepository.nextUserId(), nama, hp, user, pass, "user", addr))
                 println("✅ User ditambahkan.")
             }
@@ -93,56 +85,217 @@ class AdminMenu(admin: User) : BaseMenu(admin) {
                 if(user != null && user.role != "admin") {
                     LaundryRepository.removeUser(user)
                     println("✅ User dihapus.")
-                } else println("❌ Gagal hapus.")
+                } else println("❌ Gagal hapus (User tidak ketemu/Admin).")
             }
+            "0" -> return
         }
     }
 
     private fun manageInventory() {
-        println("\n--- STOK GUDANG ---")
-        LaundryRepository.getInventory().forEach {
-            println("[${it.id}] ${it.namaBarang}: ${it.qty} ${it.satuan}")
+        while(true) {
+            println("\n--- 📦 KELOLA INVENTORY ---")
+            LaundryRepository.getInventory().forEach {
+                println("[${it.id}] ${it.namaBarang} | Stok: ${it.qty} ${it.satuan}")
+            }
+            println("---------------------------")
+            println("1. Tambah Barang Baru")
+            println("2. Edit Stok/Nama")
+            println("3. Hapus Barang")
+            println("0. Kembali")
+            print("Pilih > ")
+
+            when(scanner.nextLine()) {
+                "1" -> {
+                    print("Nama Barang: "); val nama = scanner.nextLine()
+                    print("Stok Awal: "); val qty = scanner.nextLine().toIntOrNull() ?: 0
+                    print("Satuan: "); val unit = scanner.nextLine()
+                    LaundryRepository.addInventory(Inventory(LaundryRepository.nextInvId(), nama, qty, unit))
+                    println("✅ Barang berhasil ditambahkan.")
+                }
+                "2" -> {
+                    print("ID Barang yg diedit: "); val id = scanner.nextLine().toIntOrNull() ?: 0
+                    val item = LaundryRepository.findInventoryById(id)
+                    if(item != null) {
+                        print("Nama Baru (Enter skip): "); val nNama = scanner.nextLine()
+                        print("Tambah Stok (cth: 5 atau -2): "); val addQty = scanner.nextLine().toIntOrNull() ?: 0
+                        item.qty += addQty
+                        println("✅ Stok diupdate.")
+                    } else println("❌ Barang tidak ditemukan.")
+                }
+                "3" -> {
+                    print("ID Barang dihapus: "); val id = scanner.nextLine().toIntOrNull() ?: 0
+                    val item = LaundryRepository.findInventoryById(id)
+                    if(item != null) {
+                        LaundryRepository.removeInventory(item)
+                        println("✅ Barang dihapus.")
+                    }
+                }
+                "0" -> return
+            }
         }
     }
 
     private fun manageService() {
-        println("\n--- LAYANAN ---")
-        LaundryRepository.getServices().forEach {
-            println("[${it.id}] ${it.namaLayanan}: Rp ${it.hargaPerKg}")
+        while(true) {
+            println("\n--- 🛠 KELOLA LAYANAN ---")
+            LaundryRepository.getServices().forEach {
+                println("[${it.id}] ${it.namaLayanan} | Rp ${it.hargaPerKg}/kg")
+            }
+            println("-------------------------")
+            println("1. Tambah Layanan Baru")
+            println("2. Edit Layanan (Ubah Nama/Harga)")
+            println("3. Hapus Layanan")
+            println("0. Kembali")
+            print("Pilih > ")
+
+            when(scanner.nextLine()) {
+                "1" -> {
+                    print("Nama Layanan: "); val nama = scanner.nextLine()
+                    print("Harga: "); val harga = scanner.nextLine().toLongOrNull() ?: 0
+                    print("Estimasi (Hari): "); val hari = scanner.nextLine().toIntOrNull() ?: 1
+                    LaundryRepository.addService(Service(LaundryRepository.nextSvcId(), nama, harga, hari))
+                    println("✅ Layanan baru aktif.")
+                }
+                "2" -> {
+                    print("ID Layanan: "); val id = scanner.nextLine().toIntOrNull() ?: 0
+                    val svc = LaundryRepository.findServiceById(id)
+                    if(svc != null) {
+                        print("Nama Baru (Enter skip): "); val nNama = scanner.nextLine()
+                        print("Harga Baru (Enter skip): "); val nHarga = scanner.nextLine().toLongOrNull()
+                        if(nNama.isNotBlank()) svc.namaLayanan = nNama
+                        if(nHarga != null) svc.hargaPerKg = nHarga
+                        println("✅ Layanan berhasil diupdate!")
+                    }
+                }
+                "3" -> {
+                    print("ID Layanan dihapus: "); val id = scanner.nextLine().toIntOrNull() ?: 0
+                    val svc = LaundryRepository.findServiceById(id)
+                    if(svc != null) {
+                        LaundryRepository.removeService(svc)
+                        println("✅ Layanan dihapus.")
+                    }
+                }
+                "0" -> return
+            }
         }
     }
 
+    // 🔥🔥 FITUR UPDATE STATUS DENGAN LIST TRANSAKSI 🔥🔥
     private fun manageTransaction() {
-        // Logic Kasir Admin
-        println("\n--- KASIR ---")
-        println("1. Proses Pesanan (Input Berat)")
-        print("Pilih > ")
-        if(scanner.nextLine() == "1") {
-            val pending = LaundryRepository.getTransactions().filter { it.berat == 0.0 }
-            if(pending.isEmpty()) { println("Tidak ada pesanan baru."); return }
+        while(true) {
+            println("\n--- KASIR & STATUS CUCIAN ---")
+            println("1. Proses Pesanan Masuk (Input Berat)")
+            println("2. Update Status Cucian (Progress)")
+            println("0. Kembali")
+            print("Pilih > ")
 
-            pending.forEach { println("ID: ${it.id} | ${it.namaUser} | ${it.namaService}") }
-            print("ID Trx: "); val id = scanner.nextLine().toIntOrNull()
-            val trx = LaundryRepository.findTransactionById(id ?: 0)
+            when(scanner.nextLine()) {
+                "1" -> {
+                    // Logic Input Berat
+                    val pending = LaundryRepository.getTransactions().filter { it.berat == 0.0 }
+                    if(pending.isEmpty()) { println("Tidak ada pesanan baru."); return }
 
-            if(trx != null) {
-                val svc = LaundryRepository.findServiceById(trx.idService)!!
-                print("Berat (Kg): "); val berat = scanner.nextLine().toDoubleOrNull() ?: 0.0
-                trx.berat = berat
-                trx.totalHarga = (berat * svc.hargaPerKg).toLong()
-                trx.status = "Diproses"
-                println("✅ Total: Rp ${trx.totalHarga}")
+                    pending.forEach { println("ID: ${it.id} | ${it.namaUser} | ${it.namaService}") }
+                    print("ID Trx: "); val id = scanner.nextLine().toIntOrNull()
+                    val trx = LaundryRepository.findTransactionById(id ?: 0)
+
+                    if(trx != null) {
+                        val svc = LaundryRepository.findServiceById(trx.idService)!!
+                        print("Berat (Kg): "); val berat = scanner.nextLine().toDoubleOrNull() ?: 0.0
+                        trx.berat = berat
+                        trx.totalHarga = (berat * svc.hargaPerKg).toLong()
+                        trx.status = "Diproses"
+                        println("✅ Berat diinput. Total Tagihan: Rp ${trx.totalHarga}")
+                    }
+                }
+                "2" -> {
+                    // Logic Update Status Cucian
+                    println("\n--- UPDATE STATUS ---")
+
+                    // 👇 TAMPILKAN LIST TRANSAKSI DI SINI
+                    val allTrx = LaundryRepository.getTransactions()
+                    if (allTrx.isEmpty()) {
+                        println("Belum ada data transaksi.")
+                        return
+                    }
+
+                    println("Daftar Transaksi:")
+                    allTrx.forEach {
+                        println("ID: ${it.id} | ${it.namaUser} | ${it.namaService} [${it.status}]")
+                    }
+                    println("-------------------------")
+
+                    print("Masukkan ID Transaksi: "); val id = scanner.nextLine().toIntOrNull()
+                    val trx = LaundryRepository.findTransactionById(id ?: 0)
+
+                    if (trx != null) {
+                        println("Status Saat Ini: ${trx.status}")
+                        println("Pilih Status Baru:")
+                        println("1. Sedang Dicuci")
+                        println("2. Selesai (Siap Diambil)")
+                        println("3. Sudah Diambil")
+                        println("4. Custom (Ketik Sendiri)")
+                        print("Pilih > ")
+
+                        val input = scanner.nextLine()
+                        val newStatus = when(input) {
+                            "1" -> "Sedang Dicuci"
+                            "2" -> "Selesai"
+                            "3" -> "Sudah Diambil"
+                            "4" -> {
+                                print("Ketik status baru: ")
+                                scanner.nextLine()
+                            }
+                            else -> null
+                        }
+
+                        if (newStatus != null) {
+                            trx.status = newStatus
+                            println("✅ Status transaksi #${trx.id} diubah menjadi: '$newStatus'")
+                        } else {
+                            println("❌ Batal ubah status.")
+                        }
+                    } else {
+                        println("❌ Transaksi tidak ditemukan.")
+                    }
+                }
+                "0" -> return
             }
         }
     }
 
     private fun generateReport() {
-        println("Generate CSV Report...")
-        // Logic CSV sama seperti sebelumnya, panggil lewat class ReportGenerator jika mau lebih OOP
+        println("\n--- 📊 GENERATE LAPORAN ---")
+        if (LaundryRepository.getTransactions().isEmpty()) {
+            println("❌ Belum ada data transaksi.")
+            return
+        }
+
+        val timestamp = getDateNow().replace("/", "-")
+        val fileName = "Laporan_Laundry_$timestamp.csv"
+        val file = File(fileName)
+
+        try {
+            file.bufferedWriter().use { out ->
+                out.write("ID,TANGGAL,PELANGGAN,LAYANAN,BERAT(KG),TOTAL(RP),STATUS,PEMBAYARAN\n")
+                var totalOmset = 0L
+                LaundryRepository.getTransactions().forEach { trx ->
+                    val statusBayar = if(trx.isPaid) "LUNAS" else "BELUM BAYAR"
+                    out.write("${trx.id},${trx.tanggalMasuk},${trx.namaUser},${trx.namaService},${trx.berat},${trx.totalHarga},${trx.status},$statusBayar\n")
+                    totalOmset += trx.totalHarga
+                }
+                out.write(",,,,TOTAL PENDAPATAN,${totalOmset},,\n")
+            }
+            println("✅ SUKSES! File: $fileName")
+        } catch (e: Exception) {
+            println("❌ Gagal: ${e.message}")
+        }
     }
 }
 
-// Class Menu Customer (Mewarisi BaseMenu)
+// ==========================================
+// 👤 CUSTOMER MENU
+// ==========================================
 class CustomerMenu(customer: User) : BaseMenu(customer) {
 
     override fun show() {
@@ -151,13 +304,16 @@ class CustomerMenu(customer: User) : BaseMenu(customer) {
             println("\n--- MENU PELANGGAN (OOP) ---")
             println("1. Buat Pesanan (Order)")
             println("2. Cek Status & Tagihan")
+            println("3. Bayar Tagihan 💲")
             println("0. Logout")
             print("Pilih > ")
 
             when(scanner.nextLine()) {
                 "1" -> makeOrder()
                 "2" -> checkStatus()
+                "3" -> payBill()
                 "0" -> { logout(); return }
+                else -> println("❌ Menu tidak valid")
             }
         }
     }
@@ -175,7 +331,6 @@ class CustomerMenu(customer: User) : BaseMenu(customer) {
             print("Ganti alamat? (y/n): "); val ganti = scanner.nextLine()
             if(ganti == "y") {
                 print("Alamat Baru: "); currentUser?.alamat = scanner.nextLine()
-                // Update di repo sebenarnya perlu method khusus update, tapi karena reference object sama, ini work.
             }
 
             val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
@@ -197,22 +352,76 @@ class CustomerMenu(customer: User) : BaseMenu(customer) {
 
     private fun checkStatus() {
         val myTrx = LaundryRepository.getTransactions().filter { it.idUser == currentUser?.id }
-        myTrx.forEach {
-            val bayar = if(it.isPaid) "LUNAS" else "BELUM BAYAR"
-            println("#${it.id} ${it.namaService}: ${it.status} | Rp ${it.totalHarga} ($bayar)")
+        if (myTrx.isEmpty()) println("Belum ada riwayat.")
+        else {
+            myTrx.forEach {
+                val bayar = if(it.isPaid) "✅ LUNAS" else "❌ BELUM BAYAR"
+                println("#${it.id} ${it.namaService}: ${it.status} | Rp ${it.totalHarga} ($bayar)")
+            }
+        }
+    }
+
+    private fun payBill() {
+        val unpaidTrx = LaundryRepository.getTransactions().filter {
+            it.idUser == currentUser?.id && !it.isPaid && it.totalHarga > 0
         }
 
-        // Logic bayar bisa ditambahkan di sini (panggil method payBill)
+        if (unpaidTrx.isEmpty()) {
+            println("✅ Tidak ada tagihan aktif yang siap dibayar.")
+            return
+        }
+
+        println("\n--- DAFTAR TAGIHAN ---")
+        unpaidTrx.forEach {
+            println("ID: ${it.id} | Rp ${it.totalHarga} | ${it.namaService}")
+        }
+
+        print("\nMasukkan ID Tagihan yang mau dibayar: ")
+        val tid = scanner.nextLine().toIntOrNull()
+        val trx = LaundryRepository.findTransactionById(tid ?: 0)
+
+        if (trx != null && trx.idUser == currentUser?.id && !trx.isPaid) {
+            val dummyInv = "INV/${LocalDateTime.now().year}/TRX-${trx.id}"
+            println("\n========================================")
+            println("           TAGIHAN LAUNDRY")
+            println("========================================")
+            println("No Invoice       : $dummyInv")
+            println("Nama             : ${trx.namaUser}")
+            println("Total            : Rp. ${trx.totalHarga}")
+            println("\nSILAHKAN PILIH METODE PEMBAYARAN")
+            println("1. VA (Virtual Account)")
+            print("Pilih > ")
+
+            if (scanner.nextLine() == "1") {
+                val vaNumber = "3333${currentUser?.noHp}"
+                println("\nNO Virtual Account ($vaNumber)")
+                println("Simulasi: Masukkan No. Referensi / Bukti Transfer:")
+                print("Input > ")
+
+                val inputRef = scanner.nextLine()
+
+                if (inputRef.isNotBlank()) {
+                    trx.isPaid = true
+                    trx.paymentMethod = "VA ($inputRef)"
+                    trx.status = "Proses Cuci"
+                    println("\n✅ PEMBAYARAN BERHASIL!")
+                } else {
+                    println("❌ Pembayaran dibatalkan.")
+                }
+            } else {
+                println("❌ Metode belum tersedia.")
+            }
+        } else {
+            println("❌ ID Tagihan salah.")
+        }
     }
 }
 
 // ================= MAIN FUNCTION =================
-
 fun main() {
     println("🚀 Menyalakan Server API di http://localhost:8081 ...")
     embeddedServer(Netty, port = 8081, module = Application::module).start(wait = false)
 
-    // Logic Login Utama
     while (true) {
         println("\n=========================================")
         println("   🧺 LAUNDRY SYSTEM (OOP EDITION) 🧺   ")
@@ -226,27 +435,16 @@ fun main() {
             "1" -> {
                 print("Username: "); val uname = scanner.nextLine()
                 print("Password: "); val pass = scanner.nextLine()
-
                 val user = LaundryRepository.findUserByUsername(uname)
-
                 if (user != null && user.password == pass) {
-                    // POLYMORPHISM IN ACTION!
-                    // Kita tidak perlu if-else panjang di sini.
-                    // Cukup instansiasi class Menu yang sesuai.
-                    val menu: BaseMenu = if (user.role == "admin") {
-                        AdminMenu(user)
-                    } else {
-                        CustomerMenu(user)
-                    }
-
-                    menu.show() // Panggil method yang sama, tapi perilaku beda
+                    val menu: BaseMenu = if (user.role == "admin") AdminMenu(user) else CustomerMenu(user)
+                    menu.show()
                 } else {
                     println("❌ Login Gagal.")
                 }
             }
             "2" -> {
                 println("Register User Baru...")
-                // Panggil logic register (sederhana)
                 print("Nama: "); val n = scanner.nextLine()
                 print("User: "); val u = scanner.nextLine()
                 print("Pass: "); val p = scanner.nextLine()
